@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Google IPv6 Blacklist</title>
+  <link href='http://fonts.googleapis.com/css?family=Maven+Pro' rel='stylesheet' type='text/css'>
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+  <script src="http://code.highcharts.com/highcharts.js"></script>
+  <script src="http://code.highcharts.com/modules/exporting.js"></script>
+  <script src="http://maps.google.com/maps/api/js?sensor=true"></script>
+  <script src="gmaps.js"></script>
+  <link rel="stylesheet" href="http://twitter.github.com/bootstrap/1.3.0/bootstrap.min.css" />
+  <link rel="stylesheet" type="text/css" href="index.css" />
+
+  <script>
+
+    var map;
+
+    function loadResults (data) {
+      var items, markers_data = [];
+
+      for (var i = 0; i < data.length; i++) {
+        var item = data[i];
+        var locations = item.locations
+
+        for (var j = 0; j < locations.length; j++) {
+          var point = locations[j]
+
+          if (point.latitude != undefined && point.longitude != undefined) {
+            markers_data.push({
+              lat : point.latitude,
+              lng : point.longitude,
+              title: item.asns[0].holder,
+              infoWindow: {
+                content:
+                 '<b> Prefix: </b>' + item.prefix + '<br/>' +
+                 '<b> AS: </b>' + item.asns[0].asn + '<br/>' +
+                 '<b> Registrant: </b>' + item.whois[0].orgref + '<br/>' +
+                 '<b> BGP Announcer: </b>' + item.asns[0].holder + '<br/>' +
+                 '<b> Geographic Prefix Coverage: </b>' + point.covered_percentage
+                + '%'
+              }
+            });
+          }
+
+        }
+
+      }
+
+      map.addMarkers(markers_data);
+    }
+
+    $(document).on('click', '.pan-to-marker', function(e) {
+      e.preventDefault();
+
+      var position, lat, lng, $index;
+
+      $index = $(this).data('marker-index');
+
+      position = map.markers[$index].getPosition();
+
+      lat = position.lat();
+      lng = position.lng();
+
+      map.setCenter(lat, lng);
+    });
+
+    $(document).ready(function(){
+
+        var options = {
+            chart: {
+                renderTo: 'pie',
+                type: 'pie'
+            },
+            colors: ['#50B432', '#ED561B', '#DDDF00', '#24CBE5', '#64E572',
+              '#FF9655', '#FFF263', '#6AF9C4', '#fac961', '#556031', '#ad8163'],
+            title: {
+                text: 'Country Distribution'
+            },
+            tooltip: {
+                pointFormat: '{series.name}: <b>{point.percentage}%</b>',
+                percentageDecimals: 1
+            },
+            plotOptions: {
+                pie: {
+                    allowPointSelect: true,
+                    cursor: 'pointer',
+                    dataLabels: {
+                        enabled: true,
+                        color: '#000000',
+                        connectorColor: '#000000',
+                        formatter: function() {
+                            return '<b>'+ this.point.name +'</b>: '+
+                              this.percentage.toFixed(2) +' %';
+                        }
+                    }
+                }
+            },
+            series: [{}]
+        };
+
+        $.getJSON('http://cnds.eecs.jacobs-university.de/users/vbajpai/blacklistpie.json', function(data) {
+            options.series[0].data = data;
+            var chart = new Highcharts.Chart(options);
+        });
+
+
+
+
+
+      map = new GMaps({
+        div: '#map',
+        lat: 12.1164,
+        lng: 15.0722
+      });
+
+      map.on('marker_added', function (marker) {
+        var index = map.markers.indexOf(marker);
+        $('#results').append('<li><a href="#" class="pan-to-marker" data-marker-index="' + index + '">' + marker.title + '</a></li>');
+
+        if (index == map.markers.length - 1) {
+          map.setZoom(2);
+        }
+      });
+
+      var xhr = $.getJSON('http://cnds.eecs.jacobs-university.de/users/vbajpai/blacklist.json');
+
+      xhr.done(loadResults);
+    });
+
+
+  </script>
+
+
+</head>
+<body>
+  <div class="container">
+
+      <h3>Google IPv6 Blacklist</h3>
+
+      <div class="span16">
+
+        Google used to perform IP prefix whitelisting to enable clients to
+        receive IPv6 services. This was an opt-in process, where a
+        dual-stacked user explicitly signed up to receive Google services over
+        IPv6. This helped ensure users had reliable IPv6 connectivity before
+        trying to reach Google services over IPv6 [RFC 6589]. Since, the <a
+        target="_blank" href="http://www.worldipv6launch.org">World IPv6
+      Launch Day</a>, in order to favor the IPv6 upgrade path, Google has
+    changed the policy.  The whitelist has now been replaced by a blacklist.
+    This eliminates the opt-in process and increases the chance of a
+    dual-stacked user reaching Google services over IPv6. However, if you're
+    allocated an endpoint from a blacklisted prefix, you'll not receive Google
+    services over IPv6 even though you may be receiving IPv6 connectivity from
+    your provider.
+
+        <hr/>
+      </div>
+
+      <div class="span16">
+        <div class="span6" id="elevator">
+
+        <p>The pie chart on the right shows a country-based distribution of
+        the of blacklisted prefixes. The geolocation of the prefix is fetched
+        from the GeoLite data created by <a target="_blank"
+        href="http://www.maxmind.com">MaxMind</a> and is derived from the
+        announcements received from within the BGP routing system.  The BGP
+        routing data used is made publicly available by RIPE NCC's <a
+        target="_blank" href="www.ripe.net/ris"> Remote Routing Collectors
+        (RIS)</a>.</p>
+
+        <p>It's possible that a prefix may be used from locations encompassing
+        multiple countries. In such a case, the prefix is made to fall in a
+        country with the highest coverage.  Ideally, each location of the
+        prefix should be accounted for to make the distribution more
+        accurate.</p>
+
+        <p> The prefix annoucement and geolocation is a dynamically changing
+        process. As a resut, a backend scheduled job is provisioned to
+        periodically update the raw data and regenerate the plots. The
+        periodicity is currently set to a month for now, but we will see if it
+        needs to be tweaked in the future. The pie chart was drawn using the
+        <a target="_blank" href="http://www.highcharts.com"> HighCharts </a>
+        javascript library.</p>
+
+        </div>
+        <div class="span10" id="pie"></div>
+     </div>
+
+     <div class="span16">
+        <hr/>
+     </div>
+
+      <div class="span16">
+        <div id="elevator">
+
+          <p> The map below shows the geolocation of announced blacklisted
+          prefixes from the BGP routing data collected by RIPE NCC.  Click on
+          the marker to see more details. The map was drawn using the <a
+          target="_blank" href="http://hpneo.github.io/gmaps/">gmaps.js</a>
+          javascript library. </p>
+
+        </div>
+      </div>
+      <div class="span16">
+        <div id="map"></div>
+        <hr/>
+      </div>
+
+      <div class="span16">
+        <div id="elevator">
+
+          This page is created by <a href="http://vaibhavbajpai.com"
+            target="_blank"> Vaibhav Bajpai →</a>
+
+        </div>
+      </div>
+
+  </div>
+</body>
+</html>
