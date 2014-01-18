@@ -102,7 +102,7 @@
             series: [{}]
         };
 
-        $.getJSON('http://cnds.eecs.jacobs-university.de/users/vbajpai/googleipv6/blacklistpie.json', function(data) {
+        $.getJSON('http://googleipv6.vaibhavbajpai.com/blacklistpie.json', function(data) {
             options.series[0].data = data;
             var chart = new Highcharts.Chart(options);
         });
@@ -126,7 +126,7 @@
         }
       });
 
-      var xhr = $.getJSON('http://cnds.eecs.jacobs-university.de/users/vbajpai/googleipv6/blacklist.json');
+      var xhr = $.getJSON('http://googleipv6.vaibhavbajpai.com/blacklist.json');
 
       xhr.done(loadResults);
     });
